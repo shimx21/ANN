@@ -1,0 +1,307 @@
+########################
+# Additional Files
+########################
+# .git
+# README.md
+# __pycache__
+# wandb
+# data
+# wandb_run_record.sh
+# .gitignore
+
+########################
+# Filled Code
+########################
+# ../codes/loss.py:1
+        self.delta = input - target
+        return np.mean(np.sum(self.delta ** 2, axis=1))
+
+# ../codes/loss.py:2
+        n = input.shape[0]
+        return 2 * self.delta / n
+
+# ../codes/loss.py:3
+        expInp = np.exp(input)
+        self.softMax = expInp / np.sum(expInp, axis = 1, keepdims=True)
+        loss = -np.mean(np.sum(target * np.log(self.softMax + 0.001), axis=1))
+        return loss
+
+# ../codes/loss.py:4
+        return (self.softMax - target)/target.shape[0]
+
+# ../codes/loss.py:5
+        xtn = np.sum(input * target, axis=1, keepdims=True)
+        self.hinge = self.margin  - xtn + input
+        self.hinge[((target == 1) | (self.hinge < 0))] = 0
+        return np.mean(np.sum(self.hinge, axis=1))
+
+# ../codes/loss.py:6
+        self.hinge[self.hinge > 0] = 1
+        self.hinge[target == 1] = -np.sum(self.hinge, axis=1)
+        return self.hinge/target.shape[0]
+
+# ../codes/loss.py:7
+        expInp = np.exp(input)
+        # Store for backward()
+        self.h = expInp / np.sum(expInp, axis = 1, keepdims=True)
+        logh = np.log(self.h)
+        self.gradCoe = np.sum(np.where(target == 1, self.alpha *
+                                       np.power(1 - self.h, self.gamma - 1) * (
+                                       - logh * self.gamma * self.h +
+                                       1 - self.h
+                                       ), 0), axis=1, keepdims=True)
+
+        # Calculte loss
+        # coe1 = self.alpha * target + (1 - self.alpha) * (1 - target)
+        # coe2 = np.power(1 - self.h, self.gamma)
+        # return np.mean(np.sum(coe1 * coe2 * self.base * target, axis=1))
+        # Simplized for one-hot label:
+        return  - np.mean(np.sum(np.where(target == 1,
+                                  logh * np.power(1 - self.h, self.gamma),
+                                  0) * self.alpha, axis=1))
+
+# ../codes/loss.py:8
+        return self.gradCoe * (self.h - target) / target.shape[0]
+
+# ../codes/layers.py:1
+        lamb, alpha = 1.0507, 1.67326
+        output = lamb * np.where(input > 0, input, alpha * (np.exp(input) - 1))
+        saved = lamb * np.where(input > 0, 1, output + alpha)
+        self._saved_for_backward(saved)
+        return output
+
+# ../codes/layers.py:2
+        return grad_output * self._saved_tensor
+
+# ../codes/layers.py:3
+        sigm = 1 / (1 + np.exp(-input))
+        output = sigm * input
+        self._saved_for_backward(sigm + output * (1 - sigm))
+        return output
+
+# ../codes/layers.py:4
+        return grad_output * self._saved_tensor
+
+# ../codes/layers.py:5
+        alpha = np.sqrt(2/np.pi)
+        beta = alpha * 0.044715
+        x1 = alpha * input
+        x2 = beta * input ** 3
+        temp = np.tanh(x1 + x2)
+        self._saved_for_backward(0.5 * (1 + temp + (x1 + 3 * x2) * (1 - temp ** 2)))
+        output = 0.5 * input * (1 + temp)
+        return output
+
+# ../codes/layers.py:6
+        return grad_output * self._saved_tensor
+
+# ../codes/layers.py:7
+        self._saved_for_backward(input)
+        return np.dot(input, self.W) + self.b
+
+# ../codes/layers.py:8
+        self.grad_W = np.dot(self._saved_tensor.T, grad_output)
+        self.grad_b = np.sum(grad_output, axis=0)
+        grad_input = np.dot(grad_output, self.W.T)
+        return grad_input
+
+
+########################
+# References
+########################
+
+########################
+# Other Modifications
+########################
+# _codes/run_mlp.py -> ../codes/run_mlp.py
+# 3 - from layers import Selu, Swish, Linear, Gelu
+# 3 + from layers import Relu, Sigmoid, Selu, Swish, Gelu, Linear
+# 7 + from argparse import ArgumentParser
+# 8 + try:
+# 9 +     import wandb
+# 10 +     has_wandb = True
+# 11 + except:
+# 12 +     has_wandb = False
+# 13 +     print("No wandb")
+# 14 + import sys
+# 15 +
+# 16 + def parser():
+# 17 +     parser = ArgumentParser()
+# 18 +     # Run name
+# 19 +     parser.add_argument("--name", type=str, default="test", help="Name of this run")
+# 20 +     # Layers&Loss
+# 21 +     parser.add_argument("--layers", type=int, nargs='+', default=[784, 100, 10], help="List of number of layer nodes")
+# 22 +     parser.add_argument("--activate", type=str, default="Selu", choices=["Relu", "Sigmoid", "Selu", "Swish", "Gelu"], help="Activate Function equiped")
+# 23 +     parser.add_argument("--loss", type=str, default="Hinge", choices=["MSE", "Softmax", "Hinge", "Focal"], help="Loss Function equiped")
+# 24 +     # Learning config
+# 25 +     parser.add_argument("--learning_rate", default=0.02, type=float)
+# 26 +     parser.add_argument("--weight_decay", default=0, type=float)
+# 27 +     parser.add_argument("--momentum", default=0, type=float)
+# 28 +     # Training config
+# 29 +     parser.add_argument("--batch_size", default=100, type=int)
+# 30 +     parser.add_argument("--max_epoch", default=100, type=int)
+# 31 +     parser.add_argument("--disp_freq", default=50, type=int)
+# 32 +     parser.add_argument("--test_epoch", default=2, type=int)    # 50 tests for default
+# 33 +     # Additional
+# 34 +     parser.add_argument("--init_std", default=0.01, type=float)
+# 35 +     parser.add_argument("--hinge_margin", default=0.1, type=float)
+# 36 +     parser.add_argument("--focal_gamma", default=0.5, type=float)
+# 37 +     # Dataset
+# 38 +     parser.add_argument("--data_dir", default="data", type=str)
+# 39 +     # Wandb Record
+# 40 +     parser.add_argument("--wandb", default=False, type=bool)
+# 41 +
+# 42 +     return parser.parse_args()
+# 9 - train_data, test_data, train_label, test_label = load_mnist_2d('data')
+# 45 + def buildModel(config):
+# 46 +     model = Network()
+# 47 +     ln = len(config.layers)
+# 48 +     # Determine Activate Function
+# 49 +     if config.activate == "Relu":
+# 50 +         ActFunc = Relu
+# 51 +     elif config.activate == "Sigmoid":
+# 52 +         ActFunc = Sigmoid
+# 53 +     elif config.activate == "Selu":
+# 54 +         ActFunc = Selu
+# 55 +     elif config.activate == "Swish":
+# 56 +         ActFunc = Swish
+# 57 +     else:
+# 58 +         ActFunc = Gelu
+# 59 +
+# 60 +     # Determine Loss Function
+# 61 +     if config.loss == "MSE":
+# 62 +         loss = MSELoss("MSELoss")
+# 63 +     elif config.loss == "Softmax":
+# 64 +         loss = SoftmaxCrossEntropyLoss("SoftmaxCrossEntropyLoss")
+# 65 +     elif config.loss == "Hinge":
+# 66 +         loss = HingeLoss("HingeLoss", config.hinge_margin)
+# 67 +     else:
+# 68 +         loss = FocalLoss("FocalLoss", gamma=config.focal_gamma)
+# 69 +
+# 70 +
+# 71 +     for i in range(ln - 1):
+# 72 +         model.add(Linear("fc_" + str(i), config.layers[i], config.layers[i+1], config.init_std))
+# 73 +         model.add(ActFunc("afc_" + str(i)))
+# 11 - # Your model defintion here
+# 12 - # You should explore different model architecture
+# 13 - model = Network()
+# 14 - model.add(Linear('fc1', 784, 10, 0.01))
+# 75 +     # Connect WandB
+# 76 +     if config.wandb:
+# 77 +         wandb.init(
+# 78 +             project=f"ANN2023-HW1",
+# 79 +             config={
+# 80 +                 **vars(config),
+# 81 +                 "command": sys.argv
+# 82 +             },
+# 83 +             name=config.name
+# 84 +         )
+# 86 +         # Define Metrics
+# 87 +         wandb.define_metric("test/loss", summary="min")
+# 88 +         wandb.define_metric("test/acc", summary="max")
+# 16 - loss = MSELoss(name='loss')
+# 17 -
+# 18 - # Training configuration
+# 19 - # You should adjust these hyperparameters
+# 20 - # NOTE: one iteration means model forward-backwards one batch of samples.
+# 21 - #       one epoch means model has gone through all the training samples.
+# 22 - #       'disp_freq' denotes number of iterations in one epoch to display information.
+# 23 -
+# 24 - config = {
+# 25 -     'learning_rate': 0.0,
+# 26 -     'weight_decay': 0.0,
+# 27 -     'momentum': 0.0,
+# 28 -     'batch_size': 100,
+# 29 -     'max_epoch': 100,
+# 30 -     'disp_freq': 50,
+# 31 -     'test_epoch': 5
+# 32 - }
+# 91 +     return model, loss
+# 35 - for epoch in range(config['max_epoch']):
+# 36 -     LOG_INFO('Training @ %d epoch...' % (epoch))
+# 37 -     train_net(model, loss, config, train_data, train_label, config['batch_size'], config['disp_freq'])
+# 93 +
+# 94 + def train(model, loss, train_data, train_label, config):
+# 95 +
+# 96 +     train_config = {
+# 97 +         "learning_rate" : config.learning_rate,
+# 98 +         "weight_decay" : config.weight_decay,
+# 99 +         "momentum" : config.momentum
+# 100 +     }
+# 101 +
+# 102 +     batch_size  = config.batch_size
+# 103 +     max_epoch   = config.max_epoch
+# 104 +     disp_freq   = config.disp_freq
+# 105 +     test_epoch  = config.test_epoch
+# 106 +
+# 107 +     run_wandb   = config.wandb
+# 108 +
+# 109 +     for epoch in range(max_epoch):
+# 110 +         LOG_INFO('Training @ %d epoch...' % (epoch))
+# 111 +         train_net(model, loss, train_config, train_data, train_label, batch_size, disp_freq, run_wandb)
+# 112 +
+# 39 -     if epoch % config['test_epoch'] == 0:
+# 39 ?                --------          --
+# 113 +         if (epoch + 1) % test_epoch == 0:
+# 113 ? ++++       +      +++++
+# 40 -         LOG_INFO('Testing @ %d epoch...' % (epoch))
+# 114 +             LOG_INFO('Testing @ %d epoch...' % (epoch))
+# 114 ? ++++
+# 41 -         test_net(model, loss, test_data, test_label, config['batch_size'])
+# 41 ?                                                      --------          ^^
+# 115 +             test_net(model, loss, test_data, test_label, batch_size, run_wandb)
+# 115 ? ++++                                                               ^^^^^^^^^^^
+# 116 +
+# 117 +
+# 118 +
+# 119 + if __name__ == "__main__":
+# 120 +     # load config
+# 121 +     config = parser()
+# 122 +     config.wandb = config.wandb and has_wandb
+# 123 +     # read data
+# 124 +     train_data, test_data, train_label, test_label = load_mnist_2d(config.data_dir)
+# 125 +
+# 126 +     # Your model defintion here
+# 127 +     # You should explore different model architecture
+# 128 +     # build model
+# 129 +     model, loss = buildModel(config)
+# 130 +
+# 131 +     # Training configuration
+# 132 +     # You should adjust these hyperparameters
+# 133 +     # NOTE: one iteration means model forward-backwards one batch of samples.
+# 134 +     #       one epoch means model has gone through all the training samples.
+# 135 +     #       'disp_freq' denotes number of iterations in one epoch to display information.
+# 136 +
+# 137 +     train(model, loss, train_data, train_label, config)
+# _codes/loss.py -> ../codes/loss.py
+# 59 -     def __init__(self, name, alpha=None, gamma=2.0):
+# 59 ?                                                ^ ^
+# 69 +     def __init__(self, name, alpha=None, gamma=0.5):
+# 69 ?                                                ^ ^
+# 62 -             self.alpha = [0.1 for _ in range(10)]
+# 72 +             self.alpha = np.array([0.1 for _ in range(10)])
+# 72 ?                          +++++++++                        +
+# _codes/solve_net.py -> ../codes/solve_net.py
+# 4 + import wandb
+# 15 - def train_net(model, loss, config, inputs, labels, batch_size, disp_freq):
+# 16 + def train_net(model, loss, config, inputs, labels, batch_size, disp_freq, run_wandb=False):
+# 16 ?                                                                         +++++++++++++++++
+# 43 +             mean_loss = np.mean(loss_list)
+# 44 +             mean_acc  = np.mean(acc_list)
+# 45 +
+# 42 -             msg = '  Training iter %d, batch loss %.4f, batch acc %.4f' % (iter_counter, np.mean(loss_list), np.mean(acc_list))
+# 42 ?                                                                                          ---    ^    ------  ---    ^   ------
+# 46 +             msg = '  Training iter %d, batch loss %.4f, batch acc %.4f' % (iter_counter, mean_loss, mean_acc)
+# 46 ?                                                                                              ^          ^
+# 47 +
+# 48 +             if run_wandb: wandb.log({"train/loss": mean_loss, "train/accuracy": mean_acc})
+# 49 +
+# 48 - def test_net(model, loss, inputs, labels, batch_size):
+# 55 + def test_net(model, loss, inputs, labels, batch_size, run_wandb=False):
+# 55 ?                                                     +++++++++++++++++
+# 67 +     mean_loss = np.mean(loss_list)
+# 68 +     mean_acc  = np.mean(acc_list)
+# 69 +
+# 70 +     if run_wandb: wandb.log({"test/loss": mean_loss, "test/accuracy": mean_acc})
+# 71 +
+
