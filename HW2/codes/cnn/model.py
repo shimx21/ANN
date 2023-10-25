@@ -7,11 +7,12 @@ from torch.nn.parameter import Parameter
 from typing import OrderedDict
 class BatchNorm2d(nn.Module):
 	# TODO START
-	def __init__(self, num_features, momentum = 0.1):
+	def __init__(self, num_features, momentum = 0.1, Disabled = False):
 		super(BatchNorm2d, self).__init__()
 		self.num_features = num_features
 		self.momentum = momentum
 		self.eps = 1e-5
+		self.Disabled = Disabled
 
 		# Parameters
 		self.weight = Parameter(torch.ones(num_features))
@@ -27,6 +28,8 @@ class BatchNorm2d(nn.Module):
 
 	def forward(self, input: torch.Tensor):
 		# input: [batch_size, num_feature_map, height, width]
+		if self.Disabled:
+			return input 
 		if self.training:
 			batch_mean = input.mean(dim=(0,2,3))
 			batch_var  = input.var(dim=(0,2,3))
@@ -41,12 +44,15 @@ class BatchNorm2d(nn.Module):
 
 class Dropout2d(nn.Module):
 	# TODO START
-	def __init__(self, p=0.5):
+	def __init__(self, p=0.5, Disabled = False):
 		super(Dropout2d, self).__init__()
 		self.p = p
+		self.Disabled = Disabled
 
 	def forward(self, input):
 		# input: [batch_size, num_feature_map, height, width]
+		if self.Disabled:
+			return input 
 		if self.training:
 			mask = torch.bernoulli(torch.ones(input.shape[0:2]) * (1 - self.p)).view(input.shape[0],input.shape[1],1,1).to(input.device)
 			return input * mask /(1 - self.p)
@@ -69,6 +75,9 @@ class Model(nn.Module):
 
 			momentum = 0.1,
 			drop_rate = 0.5,
+
+			disable_bn = True,
+			disable_drop = True,
 		):
 			self.conv_chnl = conv_chnl
 			self.conv_kern = conv_kern
@@ -81,6 +90,9 @@ class Model(nn.Module):
 
 			self.momentum = momentum
 			self.drop_rate = drop_rate
+
+			self.disable_bn = disable_bn
+			self.disable_drop = disable_drop
 
 	def __init__(self, in_dim = [3, 32, 32], out_dim = 10, settings:list[Settings] = [Settings(), Settings()]):
 		super(Model, self).__init__()
@@ -111,15 +123,19 @@ class Model(nn.Module):
 				BatchNorm2d(
 					settings[i].conv_chnl,
 					settings[i].momentum,
+					settings[i].disable_bn,
 				),
 				nn.ReLU(),
-				Dropout2d(settings[i].drop_rate),
+				Dropout2d(
+					settings[i].drop_rate, 
+					settings[i].disable_drop,
+				),
 				nn.MaxPool2d(
 					settings[i].pool_kern, 
 					settings[i].pool_stride,
 					settings[i].pool_padd,
 				)
-			)) for i in range(len(settings))]+
+			)) for i in range(len(settings))] +
 			[
 				("flatten", nn.Flatten(1)),
 				("linear", nn.Linear(settings[-1].conv_chnl * linear_in[0] * linear_in[1], out_dim))
