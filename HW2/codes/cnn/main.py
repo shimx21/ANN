@@ -20,7 +20,7 @@ parser.add_argument('--num_epochs', type=int, default=20,
 	help='Number of training epoch. Default: 20')
 parser.add_argument('--learning_rate', type=float, default=1e-3,
 	help='Learning rate during optimization. Default: 1e-3')
-parser.add_argument('--drop_rate', type=float, default=0.5,
+parser.add_argument('--drop_rate', type=float, nargs="+", default=[0.5, 0.5],
 	help='Drop rate of the Dropout Layer. Default: 0.5')
 parser.add_argument('--is_train', type=bool, default=True,
 	help='True to train and False to inference. Default: True')
@@ -30,8 +30,42 @@ parser.add_argument('--train_dir', type=str, default='./train',
 	help='Training directory for saving model. Default: ./train')
 parser.add_argument('--inference_version', type=int, default=0,
 	help='The version for inference. Set 0 to use latest checkpoint. Default: 0')
+# Add More Hiper-Parameters
+parser.add_argument('--conv_chnl', type=int, nargs="+", default=[64, 128],
+	help='Number of output channels for each convolution layer. Default = [64, 128]')
+parser.add_argument('--conv_kern', type=int, nargs="+", default=[5, 7],
+	help='Size of convolution kernel for each convolution layer. Default = [5, 7]')
+parser.add_argument('--conv_stride', type=int, nargs="+", default=[1, 1],
+	help='Number of stride for each convolution layer. Default = [1, 1]')
+parser.add_argument('--conv_padd', type=int, nargs="+", default=[2, 3],
+	help='Number of paddings for each convolution layer. Default = [2, 3]')
+parser.add_argument('--pool_kern', type=int, nargs="+", default=[4, 5],
+	help='Number of kern size for each pooling layer. Default = [4, 5]')
+parser.add_argument('--pool_stride', type=int, nargs="+", default=[2, 2],
+	help='Number of stride for each pooling layer. Default = [2, 2]')
+parser.add_argument('--pool_padd', type=int, nargs="+", default=[2, 2],
+	help='Number of paddings for each pooling layer. Default = [2, 2]')
+# Other Params
+parser.add_argument('--momentum', type=float, nargs="+", default=[0.1, 0.1],
+	help='Momentum of BatchNorm for calculating running. Default = [0.1, 0.1]')
+parser.add_argument('--disable_bn', type=bool, default=False,
+	help='True to disable BatchNorm layers. Default = False')
+parser.add_argument('--disable_drop', type=bool, default=False,
+	help='True to disable Dropout layers. Default = False')
+# Wandb Support
+parser.add_argument('--name', type=str, required=True,
+	help='Name of this wandb run')
+parser.add_argument('--wandb', type=bool, default=False,
+	help='True to open wandb log')
 args = parser.parse_args()
 
+if args.wandb:
+	import wandb
+	wandb.init(
+		project="ANN-HW2",
+		name=args.name,
+		config={"command": sys.argv, **vars(args)}
+	)
 
 def shuffle(X, y, shuffle_parts):
 	chunk_size = int(len(X) / shuffle_parts)
@@ -105,9 +139,32 @@ if __name__ == '__main__':
 		X_train, X_test, y_train, y_test = load_cifar_4d(args.data_dir)
 		X_val, y_val = X_train[40000:], y_train[40000:]
 		X_train, y_train = X_train[:40000], y_train[:40000]
-		mlp_model = Model()
+		mlp_model = Model(
+			settings=[
+				Model.Settings(
+					conv_chnl=args.conv_chnl[i],
+					conv_kern=args.conv_kern[i],
+					conv_stride=args.conv_stride[i],
+					conv_padd=args.conv_padd[i],
+
+					pool_kern=args.pool_kern[i],
+					pool_stride=args.pool_stride[i],
+					pool_padd=args.pool_padd[i],
+
+					momentum=args.momentum[i],
+					drop_rate=args.drop_rate[i],
+					disable_bn=args.disable_bn,
+					disable_drop=args.disable_drop
+				)
+				for i in range(len(args.conv_chnl))
+			]
+		)
 		mlp_model.to(device)
 		print(mlp_model)
+
+		params_num = sum(p.numel() for p in mlp_model.parameters())
+		print(params_num)
+		
 		optimizer = optim.Adam(mlp_model.parameters(), lr=args.learning_rate)
 
 		# model_path = os.path.join(args.train_dir, 'checkpoint_%d.pth.tar' % args.inference_version)
@@ -143,6 +200,15 @@ if __name__ == '__main__':
 			print("  best validation accuracy:      " + str(best_val_acc))
 			print("  test loss:                     " + str(test_loss))
 			print("  test accuracy:                 " + str(test_acc))
+
+			if args.wandb:
+				wandb.log({
+					"lr": optimizer.param_groups[0]['lr'],
+					"train/loss": train_loss,
+					"train/acc": train_acc,
+					"val/loss": val_loss,
+					"val/acc": val_acc
+				}, step=epoch)
 
 			if train_loss > max(pre_losses):
 				for param_group in optimizer.param_groups:

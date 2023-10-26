@@ -7,12 +7,12 @@ from torch.nn.parameter import Parameter
 from typing import OrderedDict
 class BatchNorm2d(nn.Module):
 	# TODO START
-	def __init__(self, num_features, momentum = 0.1, Disabled = False):
+	def __init__(self, num_features, momentum = 0.1, disabled = False):
 		super(BatchNorm2d, self).__init__()
 		self.num_features = num_features
 		self.momentum = momentum
 		self.eps = 1e-5
-		self.Disabled = Disabled
+		self.disabled = disabled
 
 		# Parameters
 		self.weight = Parameter(torch.ones(num_features))
@@ -28,7 +28,7 @@ class BatchNorm2d(nn.Module):
 
 	def forward(self, input: torch.Tensor):
 		# input: [batch_size, num_feature_map, height, width]
-		if self.Disabled:
+		if self.disabled:
 			return input 
 		if self.training:
 			batch_mean = input.mean(dim=(0,2,3))
@@ -44,14 +44,14 @@ class BatchNorm2d(nn.Module):
 
 class Dropout2d(nn.Module):
 	# TODO START
-	def __init__(self, p=0.5, Disabled = False):
+	def __init__(self, p=0.5, disabled = False):
 		super(Dropout2d, self).__init__()
 		self.p = p
-		self.Disabled = Disabled
+		self.disabled = disabled
 
 	def forward(self, input):
 		# input: [batch_size, num_feature_map, height, width]
-		if self.Disabled:
+		if self.disabled:
 			return input 
 		if self.training:
 			mask = torch.bernoulli(torch.ones(input.shape[0:2]) * (1 - self.p)).view(input.shape[0],input.shape[1],1,1).to(input.device)
