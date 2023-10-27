@@ -11,7 +11,7 @@ import torch.optim as optim
 
 from model import Model
 from load_data import load_cifar_2d
-torch.autograd.set_detect_anomaly(True)
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--batch_size', type=int, default=100,
@@ -30,8 +30,29 @@ parser.add_argument('--train_dir', type=str, default='./train',
 	help='Training directory for saving model. Default: ./train')
 parser.add_argument('--inference_version', type=int, default=0,
 	help='The version for inference. Set 0 to use latest checkpoint. Default: 0')
+# Other 
+parser.add_argument('--hid_num', type=int, default=256,
+	help='Number of nodes in hidden layer. Default = 256')
+parser.add_argument('--momentum', type=float, nargs="+", default=[0.1, 0.1],
+	help='Momentum of BatchNorm for calculating running. Default = [0.1, 0.1]')
+parser.add_argument('--disable_bn', type=bool, default=False,
+	help='True to disable BatchNorm layers. Default = False')
+parser.add_argument('--disable_drop', type=bool, default=False,
+	help='True to disable Dropout layers. Default = False')
+# Wandb Support
+parser.add_argument('--name', type=str, required=True,
+	help='Name of this wandb run')
+parser.add_argument('--wandb', type=bool, default=False,
+	help='True to open wandb log')
 args = parser.parse_args()
 
+if args.wandb:
+	import wandb
+	wandb.init(
+		project="ANN-HW2",
+		name=args.name,
+		config={"command": sys.argv, **vars(args)}
+	)
 
 def shuffle(X, y, shuffle_parts):
 	chunk_size = int(len(X) / shuffle_parts)
@@ -144,13 +165,27 @@ if __name__ == '__main__':
 			print("  test loss:                     " + str(test_loss))
 			print("  test accuracy:                 " + str(test_acc))
 
+			if args.wandb:
+				wandb.log({
+					"lr": optimizer.param_groups[0]['lr'],
+					"train/loss": train_loss,
+					"train/acc": train_acc,
+					"val/loss": val_loss,
+					"val/acc": val_acc
+				}, step=epoch)
+			
 			if train_loss > max(pre_losses):
 				for param_group in optimizer.param_groups:
 					param_group['lr'] = param_group['lr'] * 0.9995
 			pre_losses = pre_losses[1:] + [train_loss]
 
 	else:
-		mlp_model = Model()
+		mlp_model = Model(
+			drop_rate=args.drop_rate,
+			hid_dim=args.hid_num,
+			disable_bn=args.disable_bn,
+			disable_drop=args.disable_drop
+		)
 		mlp_model.to(device)
 		model_path = os.path.join(args.train_dir, 'checkpoint_%d.pth.tar' % args.inference_version)
 		if os.path.exists(model_path):

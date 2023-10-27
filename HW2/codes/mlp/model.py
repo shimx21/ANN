@@ -6,11 +6,12 @@ from torch.nn import init
 from torch.nn.parameter import Parameter
 class BatchNorm1d(nn.Module):
 	# TODO START
-	def __init__(self, num_features, momentum = 0.1):
+	def __init__(self, num_features, momentum = 0.1, disabled = False):
 		super(BatchNorm1d, self).__init__()
 		self.num_features = num_features
 		self.momentum = momentum
 		self.eps = 1e-5
+		self.disabled = disabled
 
 		# Parameters
 		self.weight = Parameter(torch.ones(num_features))
@@ -26,6 +27,8 @@ class BatchNorm1d(nn.Module):
 		
 	def forward(self, input: torch.Tensor):
 		# input: [batch_size, num_feature_map * height * width]
+		if self.disabled:
+			return input 
 		if self.training:
 			batch_mean = input.mean(dim=0)
 			batch_var  = input.var(dim=0)
@@ -40,27 +43,35 @@ class BatchNorm1d(nn.Module):
 
 class Dropout(nn.Module):
 	# TODO START
-	def __init__(self, p=0.5):
+	def __init__(self, p=0.5, disabled = False):
 		super(Dropout, self).__init__()
 		self.p = p
+		self.disabled = disabled
 
 	def forward(self, input: torch.Tensor):
 		# input: [batch_size, num_feature_map * height * width]
+		if self.disabled:
+			return input 
 		if self.training:
 			return input * torch.bernoulli(torch.full(input.size(), 1 - self.p))/(1 - self.p)
 		return input
 	# TODO END
 
 class Model(nn.Module):
-	def __init__(self, drop_rate=0.5, in_dim = 3 * 32 * 32, out_dim = 10, hid_dim = 256):
+	def __init__(
+			self, 
+			drop_rate=0.5, 
+			in_dim = 3 * 32 * 32, out_dim = 10, hid_dim = 256, 
+			disable_bn = False, disable_drop = False
+		):
 		super(Model, self).__init__()
 		# TODO START
 		# Define your layers here
 		self.mlp = nn.Sequential(
 			nn.Linear(in_dim, hid_dim),
-			BatchNorm1d(hid_dim),
+			BatchNorm1d(hid_dim, disable_bn),
 			nn.ReLU(),
-			Dropout(drop_rate),
+			Dropout(drop_rate, disable_drop),
 			nn.Linear(hid_dim, out_dim)
 		)
 		# TODO END
