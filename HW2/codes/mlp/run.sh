@@ -52,7 +52,7 @@ NAME=Test_best
 train
 
 echo "Work0: Different Learning Rate"
-for LR in 1e-3 2e-3 5e-3 1e-2 2e-2 5e-2 1e-1
+for LR in 1e-4 2e-4 5e-4 1e-3 2e-3 5e-3 1e-2
 do
     NAME=MLP_Test_Learning_rate=$LR
     train
