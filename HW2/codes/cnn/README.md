@@ -7,3 +7,4 @@
 - run `python main.py` to use default settings 
 - run `bash run.sh` to update with wanbs
 - run `python main.py` with args to start with other settings
+  - __Note:__ Due to some design problems, use `''` to represent `True` value for bool type parameters

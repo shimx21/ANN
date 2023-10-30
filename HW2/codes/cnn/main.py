@@ -46,6 +46,8 @@ parser.add_argument('--pool_stride', type=int, nargs="+", default=[2, 2],
 parser.add_argument('--pool_padd', type=int, nargs="+", default=[2, 2],
 	help='Number of paddings for each pooling layer. Default = [2, 2]')
 # Other Params
+parser.add_argument('--weight_decay', type=float, default=0.001,
+	help='Weight Decay. Default = 0.001')
 parser.add_argument('--momentum', type=float, nargs="+", default=[0.1, 0.1],
 	help='Momentum of BatchNorm for calculating running. Default = [0.1, 0.1]')
 parser.add_argument('--disable_bn', type=bool, default=False,
@@ -131,7 +133,17 @@ def inference(model, X): # Test Process
 	return pred_.cpu().data.numpy()
 
 
+def deterministic(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 if __name__ == '__main__':
+	deterministic(42)
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	if not os.path.exists(args.train_dir):
 		os.mkdir(args.train_dir)
@@ -165,7 +177,7 @@ if __name__ == '__main__':
 		params_num = sum(p.numel() for p in mlp_model.parameters())
 		print(params_num)
 		
-		optimizer = optim.Adam(mlp_model.parameters(), lr=args.learning_rate)
+		optimizer = optim.Adam(mlp_model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
 		# model_path = os.path.join(args.train_dir, 'checkpoint_%d.pth.tar' % args.inference_version)
 		# if os.path.exists(model_path):
