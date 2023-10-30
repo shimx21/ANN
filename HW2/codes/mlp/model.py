@@ -47,7 +47,8 @@ class Dropout(nn.Module):
 	def forward(self, input: torch.Tensor):
 		# input: [batch_size, num_feature_map * height * width]
 		if self.training:
-			return input * torch.bernoulli(torch.full(input.size(), 1 - self.p))/(1 - self.p)
+			mask = torch.bernoulli(torch.full(input.shape, 1 - self.p)).to(input.device)
+			return input * mask/(1 - self.p)
 		return input
 	# TODO END
 
@@ -63,9 +64,9 @@ class Model(nn.Module):
 		# Define your layers here
 		self.mlp = nn.Sequential(
 			nn.Linear(in_dim, hid_dim),
-			BatchNorm1d(hid_dim)if disable_bn else Dropout(0),
+			BatchNorm1d(hid_dim)if disable_bn else Dropout(0.0),
 			nn.ReLU(),
-			Dropout(drop_rate)if disable_drop else Dropout(0),
+			Dropout(drop_rate)if disable_drop else Dropout(0.0),
 			nn.Linear(hid_dim, out_dim)
 		)
 		# TODO END

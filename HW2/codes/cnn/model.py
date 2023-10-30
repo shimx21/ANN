@@ -117,12 +117,12 @@ class Model(nn.Module):
 				BatchNorm2d(
 					settings[i].conv_chnl,
 					settings[i].momentum,
-				) if settings[i].disable_bn else Dropout2d(0),
+				) if settings[i].disable_bn else Dropout2d(0.0),
 				nn.ReLU(),
 				Dropout2d(
 					settings[i].drop_rate, 
 					
-				) if settings[i].disable_drop else Dropout2d(0),
+				) if settings[i].disable_drop else Dropout2d(0.0),
 				nn.MaxPool2d(
 					settings[i].pool_kern, 
 					settings[i].pool_stride,
