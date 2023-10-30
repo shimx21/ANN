@@ -31,6 +31,8 @@ parser.add_argument('--train_dir', type=str, default='./train',
 parser.add_argument('--inference_version', type=int, default=0,
 	help='The version for inference. Set 0 to use latest checkpoint. Default: 0')
 # Other 
+parser.add_argument('--weight_decay', type=float, default=0.001,
+	help='Weight Decay. Default = 0.001')
 parser.add_argument('--hid_num', type=int, default=256,
 	help='Number of nodes in hidden layer. Default = 256')
 parser.add_argument('--momentum', type=float, nargs="+", default=[0.1, 0.1],
@@ -45,7 +47,7 @@ parser.add_argument('--name', type=str, required=True,
 parser.add_argument('--wandb', type=bool, default=False,
 	help='True to open wandb log')
 args = parser.parse_args()
-
+print(args)
 if args.wandb:
 	import wandb
 	wandb.init(
@@ -118,7 +120,17 @@ def inference(model, X): # Test Process
 	return pred_.cpu().data.numpy()
 
 
+def deterministic(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 if __name__ == '__main__':
+	deterministic(42)
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	if not os.path.exists(args.train_dir):
 		os.mkdir(args.train_dir)
@@ -126,10 +138,18 @@ if __name__ == '__main__':
 		X_train, X_test, y_train, y_test = load_cifar_2d(args.data_dir)
 		X_val, y_val = X_train[40000:], y_train[40000:]
 		X_train, y_train = X_train[:40000], y_train[:40000]
-		mlp_model = Model(drop_rate=args.drop_rate)
+		mlp_model = Model(
+			drop_rate=args.drop_rate, 
+			disable_bn=args.disable_bn, 
+			disable_drop=args.disable_drop
+		)
 		mlp_model.to(device)
 		print(mlp_model)
-		optimizer = optim.Adam(mlp_model.parameters(), lr=args.learning_rate)
+		
+		params_num = sum(p.numel() for p in mlp_model.parameters())
+		print(params_num)
+
+		optimizer = optim.Adam(mlp_model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
 		# model_path = os.path.join(args.train_dir, 'checkpoint_%d.pth.tar' % args.inference_version)
 		# if os.path.exists(model_path):
